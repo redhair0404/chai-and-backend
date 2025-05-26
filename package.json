@@ -1,0 +1,12 @@
+{
+  "name": "chai-and-backend",
+  "version": "1.0.0",
+  "description": "A Backend Learning Series",
+  "license": "ISC",
+  "author": "Aditya Singh",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
