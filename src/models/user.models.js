@@ -31,7 +31,8 @@ const userSchema = new Schema({
         required: [true, "Password is required"],
     },
     avatar: {
-        type: String  //From Cloudinary URL
+        type: String,  //From Cloudinary URL
+        required: true
     },
     coverImage: {
         type: String  //From Cloudinary URL
