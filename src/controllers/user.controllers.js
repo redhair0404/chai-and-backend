@@ -125,7 +125,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
 const loginUser = asyncHandler(async (req, res) => {
 
-    
+
     //Login controller logic algo
     //1. Get user credentials
     //2. Validate if the email or username is correct or not empty
@@ -203,42 +203,162 @@ const logoutUser = asyncHandler(async (req, res) => {
         secure: true
     }
 
-   return res
-    .status(200)
-    .clearCookie("accessToken", cookieOption)
-    .clearCookie("refreshToken", cookieOption)
-    .json(new ApiResponse(200, {}, "User logged Out"))
+    return res
+        .status(200)
+        .clearCookie("accessToken", cookieOption)
+        .clearCookie("refreshToken", cookieOption)
+        .json(new ApiResponse(200, {}, "User logged Out"))
 })
 
-const refreshAccessToken = asyncHandler( async (req, res) => {
+const refreshAccessToken = asyncHandler(async (req, res) => {
     try {
         const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
-        if(!incomingRefreshToken) throw new ApiError(401, 'Unacuthorized access')
-        
+        if (!incomingRefreshToken) throw new ApiError(401, 'Unacuthorized access')
+
         const decodedToken = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
 
         const user = await User.findById(decodedToken?._id)
-        if(!user)  throw new ApiError(401, "Invalid refresh token")
+        if (!user) throw new ApiError(401, "Invalid refresh token")
 
-        if(incomingRefreshToken !== user?.refreshToken) throw new ApiError(401, 'Invalid or expired refresh token')
+        if (incomingRefreshToken !== user?.refreshToken) throw new ApiError(401, 'Invalid or expired refresh token')
 
-        const {accessToken, newRefreshToken} = await generateRefreshandAccessToken(user._id)
+        const { accessToken, newRefreshToken } = await generateRefreshandAccessToken(user._id)
 
         return res
-        .status(200)
-        .cookie("accessToken", accessToken)
-        .cookie("refreshToken", newRefreshToken)
-        .json(201,{ user, accessToken, newRefreshToken}, 'Access token refreshed')
+            .status(200)
+            .cookie("accessToken", accessToken)
+            .cookie("refreshToken", newRefreshToken)
+            .json(201, { user, accessToken, newRefreshToken }, 'Access token refreshed')
 
-        
+
     } catch (error) {
         throw new ApiError(401, error?.message || "Invalid refresh token")
     }
-} )
+})
 
+const getCurrentUser = asyncHandler(async (req, res) => {
+        return res.status(200).json( new ApiResponse(200, req.user, 'Current User fetched successfully!'))
+})
+
+const changeCurrentPassword = asyncHandler( async( req, res) => {
+
+    const {oldPassword, newPassword} = req.body
+    
+    if(!oldPassword && !newPassword) throw new ApiError(400, 'Password is required')
+
+    const user = await User.findById(req.user?._id)
+    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+
+    if(!isPasswordCorrect) throw new ApiError(400, 'Password is invalid')
+    
+    user.password = newPassword
+    await user.save({ validateBeforeSave: false})
+
+    return res.status(200).json( new ApiResponse(201, user, 'Password Changed Successfully'))
+
+    
+})
+
+// const forgotPassword = asyncHandler( async( req, res) => {
+
+//     const {newPassword, confnewPassword} = req.body
+    
+//     if(!newPassword && !confnewPassword) throw new ApiError(400, 'Password is required')
+    
+//     if(newPassword !== confnewPassword) throw new ApiError(400, "Confirm Password doesn't match")
+
+//     const user = await User.findById(req.user?._id)
+    
+   
+
+    
+// })
+
+const updateUserAccount = asyncHandler(async (req, res) => {
+    const {fullName, userName, email } = req.body
+
+    if(!(fullName || userName || email)) throw new ApiError(400, 'Account detail is required')
+
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                fullName : req.body?.fullName || req.user.fullName,
+                userName : req.body?.userName || req.user.userName,
+                email : req.body?.email || req.user.email,
+            }
+        },
+        {
+            new: true
+        }
+    ).select(" -password -refreshToken")
+
+    return res.status(200).json(new ApiResponse(201, user, 'Username and email updated successfully!'))
+})
+
+const updateUserAvatar = asyncHandler( async (req, res) => {
+
+    const newAvatarLocalPath = req.file?.path
+
+    if(!newAvatarLocalPath) throw new ApiError(400, 'Avatar file is required!')
+
+    const newAvatar = await uploadOnCloudinary(newAvatarLocalPath)
+    if(!newAvatar.url) throw new ApiError(400, 'Error while uploading avatar file')
+
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                avatar: newAvatar.url
+            }
+        },
+        {
+            new: true
+        }
+    ).select( " -password -refreshToken")
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse( 201, user, 'Avatar file updated')
+    )
+})
+
+const updateUserCoverImage = asyncHandler( async (req, res) => {
+
+    const newcoverImageLocalPath = req.file?.path
+
+    if(!newcoverImageLocalPath) throw new ApiError(400, 'Cover Image file is required!')
+
+    const newcoverImage = await uploadOnCloudinary(newcoverImageLocalPath)
+    if(!newcoverImage.url) throw new ApiError(400, 'Error while uploading avatar file')
+
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set: {
+                coverImage: newcoverImage.url
+            }
+        },
+        {
+            new: true
+        }
+    ).select( " -password -refreshToken")
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse( 201, user, 'Cover Image file updated')
+    )
+})
 export {
     registerUser,
     loginUser,
     logoutUser,
-    refreshAccessToken
+    refreshAccessToken,
+    getCurrentUser,
+    changeCurrentPassword,
+    updateUserAccount,
+    updateUserAvatar,
+    updateUserCoverImage
 }
